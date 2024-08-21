@@ -52,10 +52,12 @@ const reactiveProxy = (original, _parent = null, _key) => {
       if (Array.isArray(target)) {
         if (typeof target[key] === 'object' && target[key] !== null) {
           if (Array.isArray(target[key])) {
-            track(target, key)
+            const parentKey = _parent && _key ? `${_key}.${key}` : key
+            track(target, parentKey) // Track compound key for arrays
           }
           // create a new reactive proxy
-          return reactiveProxy(getRaw(target[key]), target, key)
+          const parentKey = _parent && _key ? `${_key}.${key}` : key
+          return reactiveProxy(getRaw(target[key]), target, parentKey)
         }
         // augment array path methods (that change the length of the array)
         if (arrayPatchMethods.indexOf(key) !== -1) {
@@ -66,7 +68,8 @@ const reactiveProxy = (original, _parent = null, _key) => {
             // trigger a change on the parent object and the key
             // i.e. when pushing a new item to `obj.data`, _parent will equal `obj`
             // and _key will equal `data`
-            trigger(_parent, _key)
+            const parentKey = _parent && _key ? `${_key}.${key}` : key
+            trigger(_parent, parentKey)
             return result
           }
         }
@@ -80,15 +83,18 @@ const reactiveProxy = (original, _parent = null, _key) => {
       // handling objects (but not null values, which have object type in JS)
       if (typeof target[key] === 'object' && target[key] !== null) {
         if (Array.isArray(target[key])) {
-          track(target, key)
+          const parentKey = _parent && _key ? `${_key}.${key}` : key
+          track(target, parentKey) // Track compound key for arrays
         }
         // create a new reactive proxy
-        return reactiveProxy(getRaw(target[key]), target, key)
+        const parentKey = _parent && _key ? `${_key}.${key}` : key
+        return reactiveProxy(getRaw(target[key]), target, parentKey)
       }
 
       // handling all other types
       // track the key on the target
-      track(target, key)
+      const parentKey = _parent && _key ? `${_key}.${key}` : key
+      track(target, parentKey) // Track compound key
       // return the reflected value
       return Reflect.get(target, key, receiver)
     },
@@ -105,9 +111,11 @@ const reactiveProxy = (original, _parent = null, _key) => {
       if (result && oldRawValue !== rawValue) {
         // if we're assigning an array key directly trigger reactivity on the parent key as well
         if (Array.isArray(target) && key in target) {
-          trigger(_parent, _key, true)
+          const parentKey = _parent && _key ? `${_key}.${key}` : key
+          trigger(_parent, parentKey, true) // Trigger compound key
         }
-        trigger(target, key, true)
+        const parentKey = _parent && _key ? `${_key}.${key}` : key
+        trigger(target, parentKey, true) // Trigger compound key
       }
       return result
     },

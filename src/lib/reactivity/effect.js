@@ -31,6 +31,7 @@ export const resumeTracking = () => {
 const objectMap = new WeakMap()
 
 export const track = (target, key) => {
+  console.log('Tracking:', key)
   if (currentEffect) {
     if (paused) {
       return
@@ -43,25 +44,81 @@ export const track = (target, key) => {
       effectsMap = new Map()
       objectMap.set(target, effectsMap)
     }
-    let effects = effectsMap.get(key)
-    if (!effects) {
-      effects = new Set()
-      effectsMap.set(key, effects)
+
+    const keys = key.split('.')
+    let currentMap = effectsMap
+
+    keys.forEach((k, index) => {
+      // Ensure currentMap is a Map before accessing it
+      if (!(currentMap instanceof Map)) {
+        console.error(`Expected currentMap to be a Map, but found ${typeof currentMap}`)
+        return
+      }
+
+      if (!currentMap.has(k)) {
+        if (index === keys.length - 1) {
+          // Create a Set at the final key
+          currentMap.set(k, new Set())
+        } else {
+          // Create a Map for intermediate keys
+          currentMap.set(k, new Map())
+        }
+      }
+
+      currentMap = currentMap.get(k) // Move to the next level
+    })
+
+    // const finalKey = keys[keys.length - 1]
+    const effects = currentMap instanceof Set ? currentMap : null
+    if (effects) {
+      effects.add(currentEffect)
+    } else {
+      console.error(`Expected a Set at finalKey, but found ${typeof effects}`)
     }
-    effects.add(currentEffect)
+
+    // Log statements for debugging
+    console.log(`Tracking key: ${key}`)
+    console.log('Current Map after tracking:', JSON.stringify([...effectsMap], null, 2))
   }
 }
 
 export const trigger = (target, key, force = false) => {
   if (paused === true) return
+
   const effectsMap = objectMap.get(target)
   if (!effectsMap) {
+    console.log('No effects map found for target', key)
     return
   }
-  const effects = effectsMap.get(key)
-  if (effects) {
-    for (let effect of effects) {
-      effect(force)
+
+  const keys = key.split('.')
+  let currentMap = effectsMap
+  for (let i = 0; i < keys.length; i++) {
+    const currentKey = keys[i]
+
+    if (!(currentMap instanceof Map)) {
+      console.error(`Expected currentMap to be a Map, but found ${typeof currentMap}`)
+      return
+    }
+
+    if (!currentMap.has(currentKey)) {
+      console.log(`Key not found: ${currentKey}`)
+      return
+    }
+
+    if (i === keys.length - 1) {
+      const effects = currentMap.get(currentKey)
+      if (effects instanceof Set) {
+        console.log(`Triggering effects for key: ${key}`)
+        for (let effect of effects) {
+          console.log(`Effect triggered for: ${currentKey}`)
+          effect(force)
+        }
+      } else {
+        console.error(`Expected a Set at finalKey, but found ${typeof effects}`)
+      }
+    } else {
+      currentMap = currentMap.get(currentKey)
     }
   }
 }
