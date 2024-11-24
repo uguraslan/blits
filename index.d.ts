@@ -15,6 +15,9 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
+// blits file type reference
+/// <reference path="./blits.d.ts" />
+
 import {type ShaderEffect as RendererShaderEffect, type WebGlCoreShader} from '@lightningjs/renderer'
 
 declare module '@lightningjs/blits' {
@@ -149,11 +152,6 @@ declare module '@lightningjs/blits' {
   }
 
   export type ComponentBase = {
-    /**
-    * Check if a component has focus
-    */
-    hasFocus: boolean,
-
     /**
     * Listen to events emitted by other components
     */
@@ -838,6 +836,6 @@ declare module '@lightningjs/blits' {
   }
 
   const Blits: Blits;
-
   export default Blits;
+
 }
