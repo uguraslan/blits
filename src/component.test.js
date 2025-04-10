@@ -381,7 +381,7 @@ test('Component - Instance should have ready state after the next process tick',
   setTimeout(() => {
     assert.equal(
       foo.lifecycle.state,
-      'ready',
+      'ready-fail',
       'Foo component lifecycle should be eventually in a ready state'
     )
   })
