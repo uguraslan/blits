@@ -27,7 +27,11 @@ jobs:
     - name: Run Tests
       id: run-tests
       run: |
-        npm run test > test-report.txt || echo "tests_failed=true" >> $GITHUB_OUTPUT
+        # Run tests and capture exit code
+        if ! npm run test > test-report.txt 2>&1; then
+          echo "tests_failed=true" >> $GITHUB_OUTPUT
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+        fi
 
     - name: Get Current Timestamp
       id: timestamp
@@ -38,6 +42,28 @@ jobs:
       run: |
         # Check if test-report.txt exists and has content
         if [ -s test-report.txt ]; then
+          # Check if we already know tests failed from exit code
+          if [[ "${{ steps.run-tests.outputs.tests_failed }}" == "true" ]]; then
+            echo "summary=Test execution failed" >> $GITHUB_OUTPUT
+            echo "tests_failed=true" >> $GITHUB_OUTPUT
+            # Capture the error output for the comment
+            echo "error<<EOF" >> $GITHUB_OUTPUT
+            cat test-report.txt >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          # Check for a situation where we have errors but the test runner still completed with 0 tests
+          if grep -q "Error" test-report.txt && grep -q "of 0 tests" test-report.txt; then
+            echo "summary=Test execution encountered errors. No tests were run." >> $GITHUB_OUTPUT
+            echo "tests_failed=true" >> $GITHUB_OUTPUT
+            # Capture the error output for the comment
+            echo "error<<EOF" >> $GITHUB_OUTPUT
+            cat test-report.txt >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
           # Search for a line containing both "passed:" and "failed:"
           summary=$(grep -E "passed:.*failed:" test-report.txt | head -n1)
 
@@ -45,12 +71,15 @@ jobs:
             echo "summary=$summary" >> $GITHUB_OUTPUT
             # Extract the number of failed tests
             failed=$(echo "$summary" | sed -E 's/.*failed:\s*([0-9]+).*/\1/')
+            # Extract the total number of tests
+            total=$(echo "$summary" | sed -E 's/.*of\s*([0-9]+)\s*tests.*/\1/')
 
-            if [ "$failed" -gt 0 ]; then
+            # Mark as failed if there are failed tests OR if 0 tests were found
+            if [ "$failed" -gt 0 ] || [ "$total" -eq 0 ]; then
               echo "tests_failed=true" >> $GITHUB_OUTPUT
             fi
           else
-            echo "summary=Test execution crashed or produced no valid test summary" >> $GITHUB_OUTPUT
+            echo "summary=Test execution produced no valid test summary" >> $GITHUB_OUTPUT
             echo "tests_failed=true" >> $GITHUB_OUTPUT
             # Capture the error output for the comment
             echo "error<<EOF" >> $GITHUB_OUTPUT

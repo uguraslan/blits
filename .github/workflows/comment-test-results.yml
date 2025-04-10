@@ -54,12 +54,8 @@ jobs:
 
         # Check if error.txt exists and read it if it does
         if [ -f test-results/error.txt ]; then
-          ERROR_OUTPUT=$(cat test-results/error.txt)
-          # Escape newlines and quotes for GitHub Actions
-          ERROR_OUTPUT="${ERROR_OUTPUT//'%'/'%25'}"
-          ERROR_OUTPUT="${ERROR_OUTPUT//$'\n'/'%0A'}"
-          ERROR_OUTPUT="${ERROR_OUTPUT//$'\r'/'%0D'}"
-          echo "ERROR_OUTPUT=$ERROR_OUTPUT" >> $GITHUB_ENV
+          # Store raw error output in a file for the next step
+          cat test-results/error.txt > raw_error.txt
         fi
 
     - name: Find PR Number
@@ -98,14 +94,16 @@ jobs:
       uses: actions/github-script@v6
       with:
         script: |
+          const fs = require('fs');
           const pr_number = parseInt(${{ steps.find-pr.outputs.result }});
           const status = process.env.FAILED === 'true' ? '❌ FAILED' : '✅ PASSED';
 
-          let commentBody = `### Test Results: ${status}\n**Run at:** ${process.env.TIMESTAMP}\n\n**Summary:**\n${process.env.SUMMARY}`;
+          let commentBody = `#### Test Results: ${status}\n**Run at:** ${process.env.TIMESTAMP}\n\n**Summary:**\n${process.env.SUMMARY}`;
 
           // Add error output if it exists
-          if (process.env.ERROR_OUTPUT) {
-            commentBody += '\n\n**Error Output:**\n```\n' + process.env.ERROR_OUTPUT + '\n```';
+          if (fs.existsSync('raw_error.txt')) {
+            const errorOutput = fs.readFileSync('raw_error.txt', 'utf8');
+            commentBody += '\n\n**Error Output:**\n```\n' + errorOutput + '\n```';
           }
 
           github.rest.issues.createComment({
