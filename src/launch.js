@@ -24,14 +24,12 @@ import rendererPackageInfo from '../../renderer/package.json' assert { type: 'js
 export let renderer = {}
 export const stage = {}
 
-export default (App, 
-	target, settings) => {
+export default (App, target, settings) => {
   Settings.set(settings)
 
   initLog()
   Log.info('Blits Version ', blitsPackageInfo.version)
-  Log.info(
-	  'Renderer Version ', rendererPackageInfo.version)
+  Log.info('Renderer Version ', rendererPackageInfo.version)
 
   stage.element = engine.Element
 
