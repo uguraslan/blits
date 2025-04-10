@@ -69,20 +69,43 @@ jobs:
             # If errors found, create a markdown summary for comment
             node -e "
               const results = require('./lint-results/eslint-output.json');
-              let markdown = '## ESLint Errors Found\n\n';
+              let fileErrors = {};
 
+              // Group errors by file
               for (const file of results) {
                 if (file.errorCount > 0) {
-                  markdown += \`### \${file.filePath.replace(process.env.GITHUB_WORKSPACE + '/', '')}\n\n\`;
+                  const relPath = file.filePath.replace(process.env.GITHUB_WORKSPACE + '/', '');
+                  fileErrors[relPath] = [];
 
+                  // Only collect errors (severity 2), not warnings
                   for (const message of file.messages) {
-                    if (message.severity === 2) { // Only errors, not warnings
-                      markdown += \`- **Line \${message.line}:\${message.column}**: \${message.message} (\${message.ruleId})\n\`;
+                    if (message.severity === 2) {
+                      fileErrors[relPath].push({
+                        line: message.line,
+                        column: message.column,
+                        message: message.message,
+                        ruleId: message.ruleId
+                      });
                     }
                   }
-                  markdown += '\n';
                 }
               }
+
+              // Create formatted output
+              let codeBlockContent = '';
+              for (const [filePath, errors] of Object.entries(fileErrors)) {
+                codeBlockContent += filePath + '\\n';
+                for (const error of errors) {
+                  codeBlockContent += `  Line ${error.line}:${error.column}: ${error.message} (${error.ruleId})\\n`;
+                }
+                codeBlockContent += '\\n';
+              }
+
+              // Create final markdown with emoji
+              let markdown = '❌ **Linting errors found**\\n\\n';
+              markdown += 'These linting errors must be fixed before this PR can be merged:\\n';
+              markdown += '```\\n' + codeBlockContent.trim() + '\\n```\\n\\n';
+              markdown += '_Run `npm run lint:fix` to automatically fix some of these issues._';
 
               require('fs').writeFileSync('./lint-results/errors.md', markdown);
             "
