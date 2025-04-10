@@ -1,7 +1,7 @@
 name: Run Blits Tests
 
 on:
-  pull_request_target:
+  pull_request:
     branches:
       - dev
       - master
@@ -9,13 +9,12 @@ on:
 jobs:
   run-blits-tests:
     runs-on: ubuntu-latest
+    outputs:
+      tests_failed: ${{ steps.set-result.outputs.tests_failed }}
 
     steps:
     - name: Checkout Code
       uses: actions/checkout@v3
-      with:
-        ref: ${{ github.event.pull_request.head.ref }}
-        repository: ${{ github.event.pull_request.head.repo.full_name }}
 
     - name: Set up Node.js
       uses: actions/setup-node@v3
@@ -26,44 +25,51 @@ jobs:
       run: npm install
 
     - name: Run Tests
-      run: npm run test > test-report.txt
-      #To ensure subsequent steps run even if tests fail
-      continue-on-error: true
+      id: run-tests
+      run: |
+        npm run test > test-report.txt || echo "tests_failed=true" >> $GITHUB_OUTPUT
 
     - name: Get Current Timestamp
       id: timestamp
       run: echo "timestamp=$(date)" >> $GITHUB_OUTPUT
 
     - name: Extract Test Summary
-      id: extracted-test-summary
+      id: test-summary
       run: |
-        # Search for a line containing both "passed:" and "failed:"
-        summary=$(grep -E "passed:.*failed:" test-report.txt | head -n1)
+        # Check if test-report.txt exists and has content
+        if [ -s test-report.txt ]; then
+          # Search for a line containing both "passed:" and "failed:"
+          summary=$(grep -E "passed:.*failed:" test-report.txt | head -n1)
 
-        # Extract the number of failed tests
-        failed=$(echo "$summary" | sed -E 's/.*failed:\s*([0-9]+).*/\1/')
+          if [ -n "$summary" ]; then
+            echo "summary=$summary" >> $GITHUB_OUTPUT
+            # Extract the number of failed tests
+            failed=$(echo "$summary" | sed -E 's/.*failed:\s*([0-9]+).*/\1/')
 
-        echo "summary=$summary" >> $GITHUB_OUTPUT
-
-        # If the number of failed tests is greater than 1, exit with error.
-        if [ "$failed" -gt 0 ]; then
-            exit 1
+            if [ "$failed" -gt 0 ]; then
+              echo "tests_failed=true" >> $GITHUB_OUTPUT
+            fi
+          else
+            echo "summary=Test execution crashed or produced no valid test summary" >> $GITHUB_OUTPUT
+            echo "tests_failed=true" >> $GITHUB_OUTPUT
+            # Capture the error output for the comment
+            echo "error<<EOF" >> $GITHUB_OUTPUT
+            cat test-report.txt >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          fi
+        else
+          echo "summary=Test execution error: No test output generated." >> $GITHUB_OUTPUT
+          echo "tests_failed=true" >> $GITHUB_OUTPUT
         fi
 
-    - name: Post Test Results as PR Comment
-      if: always()
-      uses: actions/github-script@v6
-      env:
-          SUMMARY: ${{ steps.extracted-test-summary.outputs.summary }}
-          TIMESTAMP: ${{ steps.timestamp.outputs.timestamp }}
-      with:
-        script: |
-            github.rest.issues.createComment({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              issue_number: context.issue.number,
-              body: `**Test Results Summary:** (Ran at: ${process.env.TIMESTAMP})\n${process.env.SUMMARY}`
-            });
+    - name: Set Result
+      id: set-result
+      run: |
+        if [[ "${{ steps.run-tests.outputs.tests_failed }}" == "true" || "${{ steps.test-summary.outputs.tests_failed }}" == "true" ]]; then
+          echo "tests_failed=true" >> $GITHUB_OUTPUT
+        else
+          echo "tests_failed=false" >> $GITHUB_OUTPUT
+        fi
 
     - name: Upload Test Report Artifact
       if: always()
@@ -71,3 +77,29 @@ jobs:
       with:
         name: test-report
         path: test-report.txt
+
+    # Create a file with test results to be used by the comment workflow
+    - name: Save Test Results
+      if: always()
+      run: |
+        mkdir -p ./test-results
+        echo "${{ steps.timestamp.outputs.timestamp }}" > ./test-results/timestamp.txt
+        echo "${{ steps.test-summary.outputs.summary || 'Test execution failed' }}" > ./test-results/summary.txt
+        echo "${{ steps.set-result.outputs.tests_failed }}" > ./test-results/failed.txt
+
+        # Save error output if it exists
+        if [ -n "${{ steps.test-summary.outputs.error }}" ]; then
+          echo "${{ steps.test-summary.outputs.error }}" > ./test-results/error.txt
+        fi
+
+    - name: Upload Test Results
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: test-results
+        path: ./test-results/
+
+    # Fail the workflow if tests failed
+    - name: Check Test Status
+      if: steps.set-result.outputs.tests_failed == 'true'
+      run: exit 1
