@@ -25,9 +25,10 @@ import rendererPackageInfo from '../../renderer/package.json' assert { type: 'js
 export let renderer = {
 }
 export const stage = {}
-
+// dummy comment for testing
 export default (App, 
-	target, settings) => {Settings.set(settings)
+	target, 
+	settings) => {Settings.set(settings)
 
   initLog()
   Log.info('Blits Version ', blitsPackageInfo.version)
