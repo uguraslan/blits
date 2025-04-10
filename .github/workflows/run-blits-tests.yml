@@ -68,15 +68,20 @@ jobs:
           summary=$(grep -E "passed:.*failed:" test-report.txt | head -n1)
 
           if [ -n "$summary" ]; then
+            # Extract test numbers for clearer reporting
             echo "summary=$summary" >> $GITHUB_OUTPUT
+
             # Extract the number of failed tests
             failed=$(echo "$summary" | sed -E 's/.*failed:\s*([0-9]+).*/\1/')
             # Extract the total number of tests
             total=$(echo "$summary" | sed -E 's/.*of\s*([0-9]+)\s*tests.*/\1/')
 
             # Mark as failed if there are failed tests OR if 0 tests were found
-            if [ "$failed" -gt 0 ] || [ "$total" -eq 0 ]; then
+            if [ "$failed" -gt 0 ]; then
               echo "tests_failed=true" >> $GITHUB_OUTPUT
+            elif [ "$total" -eq 0 ]; then
+              echo "tests_failed=true" >> $GITHUB_OUTPUT
+              echo "summary=No tests were found to run. This is considered a failure." >> $GITHUB_OUTPUT
             fi
           else
             echo "summary=Test execution produced no valid test summary" >> $GITHUB_OUTPUT
