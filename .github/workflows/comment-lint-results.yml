@@ -7,7 +7,7 @@ on:
       - completed
 
 jobs:
-  comment:
+  comment-lint-results:
     # Only run this job if the previous workflow failed (indicating lint errors)
     if: github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest

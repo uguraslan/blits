@@ -7,7 +7,7 @@ on:
       - master
 
 jobs:
-  lint:
+  run-lint:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -66,26 +66,40 @@ jobs:
           echo "errors_found=$error_count" >> $GITHUB_OUTPUT
 
           if [ "$error_count" -gt 0 ]; then
-            # If errors found, create a markdown summary for comment
-            node -e "
+            # Create the formatted error report
+            echo '❌ **Linting errors found**' > ./lint-results/errors.md
+            echo '' >> ./lint-results/errors.md
+            echo 'These linting errors must be fixed before this PR can be merged:' >> ./lint-results/errors.md
+            echo '' >> ./lint-results/errors.md
+            echo '```' >> ./lint-results/errors.md
+
+            # Extract and format errors from the JSON
+            error_count=$(node -e "
               const results = require('./lint-results/eslint-output.json');
-              let markdown = '## ESLint Errors Found\n\n';
+              let errorSummary = '';
 
               for (const file of results) {
                 if (file.errorCount > 0) {
-                  markdown += \`### \${file.filePath.replace(process.env.GITHUB_WORKSPACE + '/', '')}\n\n\`;
+                  const filePath = file.filePath.replace(process.env.GITHUB_WORKSPACE + '/', '');
+                  errorSummary += filePath + '\\n';
 
-                  for (const message of file.messages) {
-                    if (message.severity === 2) { // Only errors, not warnings
-                      markdown += \`- **Line \${message.line}:\${message.column}**: \${message.message} (\${message.ruleId})\n\`;
+                  for (const msg of file.messages) {
+                    if (msg.severity === 2) {
+                      errorSummary += '  Line ' + msg.line + ':' + msg.column + ': ' +
+                                     msg.message + ' (' + msg.ruleId + ')\\n';
                     }
                   }
-                  markdown += '\n';
+                  errorSummary += '\\n';
                 }
               }
 
-              require('fs').writeFileSync('./lint-results/errors.md', markdown);
-            "
+              console.log(errorSummary.trim());
+            ")
+
+            echo "$error_count" >> ./lint-results/errors.md
+            echo '```' >> ./lint-results/errors.md
+            echo '' >> ./lint-results/errors.md
+            echo '_Run `npm run lint:fix` to automatically fix some of these issues._' >> ./lint-results/errors.md
           fi
         else
           echo "errors_found=0" >> $GITHUB_OUTPUT
