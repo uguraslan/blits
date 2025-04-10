@@ -20,9 +20,9 @@ jobs:
       uses: actions/github-script@v6
       with:
         script: |
-          const core = require('@actions/core');
-
           try {
+            core.info('Downloading lint results artifact');
+
             const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -35,6 +35,8 @@ jobs:
               return false;
             }
 
+            core.info(`Found artifact id: ${matchArtifact.id}`);
+
             const download = await github.rest.actions.downloadArtifact({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -45,6 +47,7 @@ jobs:
             const fs = require('fs');
             try {
               fs.writeFileSync('lint-results.zip', Buffer.from(download.data));
+              core.info('Successfully downloaded and saved artifact');
               return true;
             } catch (error) {
               core.setFailed(`Failed to write artifact: ${error.message}`);
@@ -79,9 +82,9 @@ jobs:
       uses: actions/github-script@v6
       with:
         script: |
-          const core = require('@actions/core');
-
           try {
+            core.info('Finding associated PR');
+
             const { owner, repo } = context.repo;
             const run_id = ${{ github.event.workflow_run.id }};
 
@@ -94,18 +97,21 @@ jobs:
 
             // Find associated PR - first try the event payload
             if (run.data.pull_requests && run.data.pull_requests.length > 0) {
+              core.info(`Found PR directly from run data: #${run.data.pull_requests[0].number}`);
               return run.data.pull_requests[0].number;
             }
 
             // Fallback to searching by head SHA
+            core.info(`Searching for PR using head SHA: ${run.data.head_sha}`);
             const pulls = await github.rest.pulls.list({
               owner,
               repo,
               state: 'open',
-              head: run.data.head_sha
+              head: `${owner}:${run.data.head_branch}`
             });
 
             if (pulls.data.length > 0) {
+              core.info(`Found PR by branch: #${pulls.data[0].number}`);
               return pulls.data[0].number;
             }
 
@@ -118,12 +124,10 @@ jobs:
         result-encoding: string
 
     - name: Post Lint Results as PR Comment
-      if: steps.find-pr.outputs.result != 'null'
+      if: steps.find-pr.outputs.result != 'null' && steps.find-pr.outputs.result != ''
       uses: actions/github-script@v6
       with:
         script: |
-          const core = require('@actions/core');
-
           try {
             const pr_number = parseInt(${{ steps.find-pr.outputs.result }});
 
@@ -132,6 +136,8 @@ jobs:
               return;
             }
 
+            core.info(`Posting comment to PR #${pr_number}`);
+
             await github.rest.issues.createComment({
               owner: context.repo.owner,
               repo: context.repo.repo,
@@ -139,7 +145,7 @@ jobs:
               body: process.env.LINT_ERRORS
             });
 
-            core.info(`Posted lint errors comment to PR #${pr_number}`);
+            core.info(`Successfully posted lint errors comment to PR #${pr_number}`);
           } catch (error) {
             core.setFailed(`Failed to post comment: ${error.message}`);
           }
