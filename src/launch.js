@@ -16,9 +16,7 @@
  */
 
 import Settings from './settings.js'
-import { initLog,
-
-	Log } from './lib/log.js'
+import { initLog, Log } from './lib/log.js'
 import engine from './engine.js'
 import blitsPackageInfo from '../package.json' assert { type: 'json' }
 import rendererPackageInfo from '../node_modules/@lightningjs/renderer/package.json' assert { type: 'json' }
@@ -26,9 +24,7 @@ import rendererPackageInfo from '../node_modules/@lightningjs/renderer/package.j
 export let renderer = {}
 export const stage = {}
 
-export default (
-
-	App, target, settings) => {
+export default (App, target, settings) => {
   Settings.set(settings)
 
   initLog()
