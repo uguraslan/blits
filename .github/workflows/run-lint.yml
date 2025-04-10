@@ -91,19 +91,19 @@ jobs:
                 }
               }
 
-              // Create formatted output
+              // Create formatted output for code block
               let codeBlockContent = '';
               for (const [filePath, errors] of Object.entries(fileErrors)) {
                 codeBlockContent += filePath + '\\n';
                 for (const error of errors) {
-                  codeBlockContent += `  Line ${error.line}:${error.column}: ${error.message} (${error.ruleId})\\n`;
+                  codeBlockContent += '  Line ' + error.line + ':' + error.column + ': ' + error.message + ' (' + error.ruleId + ')\\n';
                 }
                 codeBlockContent += '\\n';
               }
 
-              // Create final markdown with emoji
+              // Create final markdown
               let markdown = '❌ **Linting errors found**\\n\\n';
-              markdown += 'These linting errors must be fixed before this PR can be merged:\\n';
+              markdown += 'These linting errors must be fixed before this PR can be merged:\\n\\n';
               markdown += '```\\n' + codeBlockContent.trim() + '\\n```\\n\\n';
               markdown += '_Run `npm run lint:fix` to automatically fix some of these issues._';
 
