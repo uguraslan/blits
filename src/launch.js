@@ -16,12 +16,12 @@
  */
 
 import Settings from './settings.js'
-import { initLog, 
+import { initLog,
 
 	Log } from './lib/log.js'
 import engine from './engine.js'
 import blitsPackageInfo from '../package.json' assert { type: 'json' }
-import rendererPackageInfo from '../../renderer/package.json' assert { type: 'json' }
+import rendererPackageInfo from '../node_modules/@lightningjs/renderer/package.json' assert { type: 'json' }
 
 export let renderer = {}
 export const stage = {}
