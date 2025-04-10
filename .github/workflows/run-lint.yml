@@ -66,49 +66,40 @@ jobs:
           echo "errors_found=$error_count" >> $GITHUB_OUTPUT
 
           if [ "$error_count" -gt 0 ]; then
-            # If errors found, create a markdown summary for comment
-            node -e "
-              const results = require('./lint-results/eslint-output.json');
-              let fileErrors = {};
+            # Create the formatted error report
+            echo '❌ **Linting errors found**' > ./lint-results/errors.md
+            echo '' >> ./lint-results/errors.md
+            echo 'These linting errors must be fixed before this PR can be merged:' >> ./lint-results/errors.md
+            echo '' >> ./lint-results/errors.md
+            echo '```' >> ./lint-results/errors.md
 
-              // Group errors by file
+            # Extract and format errors from the JSON
+            error_count=$(node -e "
+              const results = require('./lint-results/eslint-output.json');
+              let errorSummary = '';
+
               for (const file of results) {
                 if (file.errorCount > 0) {
-                  const relPath = file.filePath.replace(process.env.GITHUB_WORKSPACE + '/', '');
-                  fileErrors[relPath] = [];
+                  const filePath = file.filePath.replace(process.env.GITHUB_WORKSPACE + '/', '');
+                  errorSummary += filePath + '\\n';
 
-                  // Only collect errors (severity 2), not warnings
-                  for (const message of file.messages) {
-                    if (message.severity === 2) {
-                      fileErrors[relPath].push({
-                        line: message.line,
-                        column: message.column,
-                        message: message.message,
-                        ruleId: message.ruleId
-                      });
+                  for (const msg of file.messages) {
+                    if (msg.severity === 2) {
+                      errorSummary += '  Line ' + msg.line + ':' + msg.column + ': ' +
+                                     msg.message + ' (' + msg.ruleId + ')\\n';
                     }
                   }
+                  errorSummary += '\\n';
                 }
               }
 
-              // Create formatted output for code block
-              let codeBlockContent = '';
-              for (const [filePath, errors] of Object.entries(fileErrors)) {
-                codeBlockContent += filePath + '\\n';
-                for (const error of errors) {
-                  codeBlockContent += '  Line ' + error.line + ':' + error.column + ': ' + error.message + ' (' + error.ruleId + ')\\n';
-                }
-                codeBlockContent += '\\n';
-              }
+              console.log(errorSummary.trim());
+            ")
 
-              // Create final markdown
-              let markdown = '❌ **Linting errors found**\\n\\n';
-              markdown += 'These linting errors must be fixed before this PR can be merged:\\n\\n';
-              markdown += '```\\n' + codeBlockContent.trim() + '\\n```\\n\\n';
-              markdown += '_Run `npm run lint:fix` to automatically fix some of these issues._';
-
-              require('fs').writeFileSync('./lint-results/errors.md', markdown);
-            "
+            echo "$error_count" >> ./lint-results/errors.md
+            echo '```' >> ./lint-results/errors.md
+            echo '' >> ./lint-results/errors.md
+            echo '_Run `npm run lint:fix` to automatically fix some of these issues._' >> ./lint-results/errors.md
           fi
         else
           echo "errors_found=0" >> $GITHUB_OUTPUT
