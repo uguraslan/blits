@@ -10,7 +10,7 @@ jobs:
   run-blits-tests:
     runs-on: ubuntu-latest
     outputs:
-      tests_failed: ${{ steps.set-result.outputs.tests_failed }}
+      tests_failed: ${{ steps.analyze-results.outputs.result && fromJSON(steps.analyze-results.outputs.result).testsFailed }}
 
     steps:
     - name: Checkout Code
@@ -26,84 +26,91 @@ jobs:
 
     - name: Run Tests
       id: run-tests
-      run: |
-        # Run tests and capture exit code
-        if ! npm run test > test-report.txt 2>&1; then
-          echo "tests_failed=true" >> $GITHUB_OUTPUT
-          echo "exit_code=$?" >> $GITHUB_OUTPUT
-        fi
+      run: npm run test > test-report.txt 2>&1 || echo "Command failed with exit code $?" >> test-report.txt
 
-    - name: Get Current Timestamp
-      id: timestamp
-      run: echo "timestamp=$(date)" >> $GITHUB_OUTPUT
+    - name: Analyze Test Results
+      id: analyze-results
+      uses: actions/github-script@v6
+      with:
+        result-encoding: json
+        script: |
+          const fs = require('fs');
+          const timestamp = new Date().toISOString();
 
-    - name: Extract Test Summary
-      id: test-summary
-      run: |
-        # Check if test-report.txt exists and has content
-        if [ -s test-report.txt ]; then
-          # Check if we already know tests failed from exit code
-          if [[ "${{ steps.run-tests.outputs.tests_failed }}" == "true" ]]; then
-            echo "summary=Test execution failed" >> $GITHUB_OUTPUT
-            echo "tests_failed=true" >> $GITHUB_OUTPUT
-            # Capture the error output for the comment
-            echo "error<<EOF" >> $GITHUB_OUTPUT
-            cat test-report.txt >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          const results = {
+            timestamp,
+            summary: '',
+            testsFailed: false,
+            error: null
+          };
 
-          # Check for a situation where we have errors but the test runner still completed with 0 tests
-          if grep -q "Error" test-report.txt && grep -q "of 0 tests" test-report.txt; then
-            echo "summary=Test execution encountered errors. No tests were run." >> $GITHUB_OUTPUT
-            echo "tests_failed=true" >> $GITHUB_OUTPUT
-            # Capture the error output for the comment
-            echo "error<<EOF" >> $GITHUB_OUTPUT
-            cat test-report.txt >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-            exit 0
-          fi
+          // Check if test report exists and has content
+          if (!fs.existsSync('test-report.txt') || !fs.statSync('test-report.txt').size) {
+            results.summary = 'Test execution error: No test output generated.';
+            results.testsFailed = true;
+            return outputResults(results);
+          }
 
-          # Search for a line containing both "passed:" and "failed:"
-          summary=$(grep -E "passed:.*failed:" test-report.txt | head -n1)
+          // Read test report
+          const testOutput = fs.readFileSync('test-report.txt', 'utf8');
 
-          if [ -n "$summary" ]; then
-            # Extract test numbers for clearer reporting
-            echo "summary=$summary" >> $GITHUB_OUTPUT
+          // Check for errors and test results
+          const hasError = testOutput.includes('Error');
+          const testSummaryMatch = testOutput.match(/passed:\s*(\d+)\s*failed:\s*(\d+)\s*of\s*(\d+)\s*tests/);
 
-            # Extract the number of failed tests
-            failed=$(echo "$summary" | sed -E 's/.*failed:\s*([0-9]+).*/\1/')
-            # Extract the total number of tests
-            total=$(echo "$summary" | sed -E 's/.*of\s*([0-9]+)\s*tests.*/\1/')
+          if (hasError && (!testSummaryMatch || testSummaryMatch[3] === '0')) {
+            // Error with no tests or zero tests
+            results.summary = 'Test execution encountered errors. No tests were run.';
+            results.testsFailed = true;
+            results.error = testOutput;
+          } else if (testSummaryMatch) {
+            // We have a test summary
+            const passed = parseInt(testSummaryMatch[1]);
+            const failed = parseInt(testSummaryMatch[2]);
+            const total = parseInt(testSummaryMatch[3]);
 
-            # Mark as failed if there are failed tests OR if 0 tests were found
-            if [ "$failed" -gt 0 ]; then
-              echo "tests_failed=true" >> $GITHUB_OUTPUT
-            elif [ "$total" -eq 0 ]; then
-              echo "tests_failed=true" >> $GITHUB_OUTPUT
-              echo "summary=No tests were found to run. This is considered a failure." >> $GITHUB_OUTPUT
-            fi
-          else
-            echo "summary=Test execution produced no valid test summary" >> $GITHUB_OUTPUT
-            echo "tests_failed=true" >> $GITHUB_OUTPUT
-            # Capture the error output for the comment
-            echo "error<<EOF" >> $GITHUB_OUTPUT
-            cat test-report.txt >> $GITHUB_OUTPUT
-            echo "EOF" >> $GITHUB_OUTPUT
-          fi
-        else
-          echo "summary=Test execution error: No test output generated." >> $GITHUB_OUTPUT
-          echo "tests_failed=true" >> $GITHUB_OUTPUT
-        fi
+            results.summary = testSummaryMatch[0];
 
-    - name: Set Result
-      id: set-result
-      run: |
-        if [[ "${{ steps.run-tests.outputs.tests_failed }}" == "true" || "${{ steps.test-summary.outputs.tests_failed }}" == "true" ]]; then
-          echo "tests_failed=true" >> $GITHUB_OUTPUT
-        else
-          echo "tests_failed=false" >> $GITHUB_OUTPUT
-        fi
+            if (failed > 0 || total === 0) {
+              results.testsFailed = true;
+
+              if (total === 0) {
+                results.summary = 'No tests were found to run. This is considered a failure.';
+              }
+            }
+          } else {
+            // No test summary found
+            results.summary = 'Test execution produced no valid test summary';
+            results.testsFailed = true;
+            results.error = testOutput;
+          }
+
+          return outputResults(results);
+
+          /**
+           * Outputs results and saves result files
+           */
+          function outputResults(results) {
+            // Create test results directory and files
+            try {
+              fs.mkdirSync('./test-results', { recursive: true });
+
+              // Write results files
+              fs.writeFileSync('./test-results/timestamp.txt', results.timestamp);
+              fs.writeFileSync('./test-results/summary.txt', results.summary);
+              fs.writeFileSync('./test-results/failed.txt', results.testsFailed.toString());
+
+              // Save error output if it exists
+              if (results.error) {
+                fs.writeFileSync('./test-results/error.txt', results.error);
+              }
+            } catch (err) {
+              console.error('Error saving test results:', err);
+              core.warning(`Error saving test results: ${err.message}`);
+            }
+
+            return results;
+          }
 
     - name: Upload Test Report Artifact
       if: always()
@@ -111,20 +118,6 @@ jobs:
       with:
         name: test-report
         path: test-report.txt
-
-    # Create a file with test results to be used by the comment workflow
-    - name: Save Test Results
-      if: always()
-      run: |
-        mkdir -p ./test-results
-        echo "${{ steps.timestamp.outputs.timestamp }}" > ./test-results/timestamp.txt
-        echo "${{ steps.test-summary.outputs.summary != '' && steps.test-summary.outputs.summary || 'Test execution failed' }}" > ./test-results/summary.txt
-        echo "${{ steps.set-result.outputs.tests_failed }}" > ./test-results/failed.txt
-
-        # Save error output if it exists
-        if [ -n "${{ steps.test-summary.outputs.error }}" ]; then
-          echo "${{ steps.test-summary.outputs.error }}" > ./test-results/error.txt
-        fi
 
     - name: Upload Test Results
       if: always()
@@ -135,5 +128,5 @@ jobs:
 
     # Fail the workflow if tests failed
     - name: Check Test Status
-      if: steps.set-result.outputs.tests_failed == 'true'
+      if: ${{ steps.analyze-results.outputs.result && fromJSON(steps.analyze-results.outputs.result).testsFailed }}
       run: exit 1
