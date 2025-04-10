@@ -118,7 +118,7 @@ jobs:
       run: |
         mkdir -p ./test-results
         echo "${{ steps.timestamp.outputs.timestamp }}" > ./test-results/timestamp.txt
-        echo "${{ steps.test-summary.outputs.summary || 'Test execution failed' }}" > ./test-results/summary.txt
+        echo "${{ steps.test-summary.outputs.summary != '' && steps.test-summary.outputs.summary || 'Test execution failed' }}" > ./test-results/summary.txt
         echo "${{ steps.set-result.outputs.tests_failed }}" > ./test-results/failed.txt
 
         # Save error output if it exists
