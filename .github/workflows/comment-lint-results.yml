@@ -20,7 +20,6 @@ jobs:
         with:
           result-encoding: string
           script: |
-            const core = require('@actions/core');
             try {
               core.info('Downloading lint-results artifact');
 
@@ -72,7 +71,6 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const core = require('@actions/core');
 
             try {
               // Grab the PRs that triggered this run (always one)
