@@ -20,14 +20,19 @@ jobs:
         with:
           result-encoding: string
           script: |
+
             try {
               core.info('Downloading lint-results artifact');
+
+              // Grab the run ID from the payload
+              const runId = context.payload.workflow_run.id;
 
               const artifacts = await github.rest.actions.listWorkflowRunArtifacts({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                run_id: github.event.workflow_run.id
+                run_id: runId
               });
+
               const art = artifacts.data.artifacts.find(a => a.name === "lint-results");
               if (!art) {
                 core.setFailed('No lint-results artifact found');
@@ -41,6 +46,7 @@ jobs:
                 artifact_id: art.id,
                 archive_format: 'zip'
               });
+
               require('fs').writeFileSync('lint-results.zip', Buffer.from(dl.data));
               core.info('Downloaded and saved lint-results.zip');
               return 'true';
@@ -56,6 +62,7 @@ jobs:
         run: |
           mkdir -p lint-results
           unzip -o lint-results.zip -d lint-results
+
           if [ -f lint-results/errors.md ]; then
             echo "LINT_ERRORS<<EOF" >> $GITHUB_ENV
             cat lint-results/errors.md >> $GITHUB_ENV
@@ -70,10 +77,8 @@ jobs:
         uses: actions/github-script@v6
         with:
           script: |
-            const fs = require('fs');
-
             try {
-              // Grab the PRs that triggered this run (always one)
+              // core and github injected by actions/github-script
               const pulls = context.payload.workflow_run.pull_requests;
               core.info(`Found ${pulls.length} triggering PR(s)`);
 
@@ -93,7 +98,6 @@ jobs:
                 });
               }
               core.info('All comments posted');
-
             } catch (err) {
               core.error('Failed to post lint comment:', err);
               core.setFailed(err.message);
