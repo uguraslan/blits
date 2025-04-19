@@ -72,7 +72,6 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const core = require('@actions/core');
 
             try {
               // Grab the PRs that triggered this run (always one)
