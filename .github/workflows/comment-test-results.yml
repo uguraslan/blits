@@ -44,7 +44,6 @@ jobs:
         with:
           script: |
             const fs = require('fs');
-            const core = require('@actions/core');
 
             try {
               const pulls = context.payload.workflow_run.pull_requests;
