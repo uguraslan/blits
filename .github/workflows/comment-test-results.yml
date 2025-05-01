@@ -36,6 +36,7 @@ jobs:
 
       - name: Extract Test Results
         run: |
+
           mkdir -p extracted
           unzip -o test-results.zip -d extracted
 
@@ -50,6 +51,7 @@ jobs:
           else
             echo "PR_NUMBER=0" >> $GITHUB_ENV
           fi
+
 
           # Copy error file if it exists
           if [ -f extracted/error.txt ]; then
