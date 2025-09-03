@@ -1,4 +1,4 @@
-name: Master Branch Coverage
+name: Tests
 
 on:
   push:
@@ -24,11 +24,14 @@ jobs:
     - name: Run Tests with Coverage
       run: npm run test
 
+    - name: Generate Coverage Report
+      run: npx c8 report --reporter=lcov
+
     - name: Upload Coverage to Codecov
       uses: codecov/codecov-action@v3
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
-        directory: ./coverage
+        file: ./coverage/lcov.info
         flags: unittests
-        name: codecov-umbrella
+        name: blits-coverage
         fail_ci_if_error: false

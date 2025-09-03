@@ -2,7 +2,7 @@
 
 # Blits - Lightning 3 App Development Framework
 
-![Tests](https://github.com/uguraslan/blits/workflows/Master%20Branch%20Coverage/badge.svg?branch=master) ![Coverage](https://codecov.io/gh/uguraslan/blits/branch/master/graph/badge.svg)
+![Tests](https://github.com/uguraslan/blits/workflows/Tests/badge.svg?branch=master) ![Coverage](https://codecov.io/gh/uguraslan/blits/branch/master/graph/badge.svg)
 
 With Blits, the App Development Framework for Lightning 3, it becomes a breeze to build great Lightning 3 applications.
 
