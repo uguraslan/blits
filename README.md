@@ -2,7 +2,7 @@
 
 # Blits - Lightning 3 App Development Framework
 
-![npm](https://img.shields.io/npm/v/@lightningjs/blits?label=Version&color=blue) ![License](https://img.shields.io/github/license/lightning-js/blits?label=License&color=blue) ![Tests](https://github.com/uguraslan/blits/workflows/Tests/badge.svg) ![Coverage](https://img.shields.io/codecov/c/github/uguraslan/blits/master?label=Coverage) ![npm](https://img.shields.io/npm/dm/@lightningjs/blits?label=Downloads&color=blue)
+![npm](https://img.shields.io/npm/v/@lightningjs/blits?label=Version&color=blue) ![License](https://img.shields.io/github/license/lightning-js/blits?label=License&color=blue) ![Tests](https://github.com/lightning-js/blits/workflows/Tests/badge.svg) ![Coverage](https://img.shields.io/codecov/c/github/lightning-js/blits/master?label=Coverage) ![npm](https://img.shields.io/npm/dm/@lightningjs/blits?label=Downloads&color=blue)
 
 With Blits, the App Development Framework for Lightning 3, it becomes a breeze to build great Lightning 3 applications.
 
