@@ -30,6 +30,7 @@ const settings = {
     if (typeof key === 'object') {
       Object.keys(key).forEach((k) => {
         this.set(k, key[k])
+        // here is the change
       })
     } else {
       this[symbols.settings][key] = value
