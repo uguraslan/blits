@@ -37,7 +37,6 @@ test('Setup', async (assert) => {
   assert.ok(processDirectory, 'processDirectory function loaded')
   assert.ok(processFile, 'processFile function loaded')
   assert.ok(formatFileWithESLint, 'formatFileWithESLint function loaded')
-  assert.end()
 })
 
 test('precompileComponents - should log start and end messages', (assert) => {
